@@ -1,5 +1,10 @@
 # 🎯 Event Ready
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://event-ready-y4aeacjb5acsw9nabdtkxu.streamlit.app/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+> 🔗 **Live Demo:** [event-ready.streamlit.app](https://event-ready-y4aeacjb5acsw9nabdtkxu.streamlit.app/)
+
 **Your AI-powered event readiness assistant.**
 
 Event Ready helps event organizers identify potential problems before an event begins. Powered by **Python and Ollama**, it analyzes event requirements, checks available resources, highlights missing information, and provides actionable findings to help organizers make better decisions.
