@@ -934,5 +934,210 @@ def main():
         )
 
 
+def run_terminal():
+    """Terminal CLI mode when executed directly via `python app.py`."""
+    import argparse
+    import sys
+
+    # Configure UTF-8 output on Windows terminal
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+    parser = argparse.ArgumentParser(
+        description="EventReady — Pre-Event Failure Detector",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("--example", action="store_true", help="Run the built-in demo event plan")
+    parser.add_argument("--file", type=str, metavar="PATH", help="Path to text file containing event plan")
+    parser.add_argument("--ui", action="store_true", help="Launch the Streamlit web dashboard in your browser")
+    args = parser.parse_args()
+
+    # Launch web UI if requested
+    if args.ui:
+        print("Launching Streamlit Web Dashboard...")
+        from streamlit.web import cli as stcli
+        sys.argv = ["streamlit", "run", __file__]
+        sys.exit(stcli.main())
+
+    print()
+    print("=" * 72)
+    print("  🎯 EventReady — Pre-Event Failure Detector (Terminal Mode)")
+    print(f"  Model: {MODEL_NAME}  |  Local AI Engine  |  Zero Cloud Calls")
+    print("=" * 72)
+    print()
+
+    # Determine event plan text
+    if args.example:
+        event_text = EXAMPLE_PLAN
+        print(">> Using built-in example plan (Python Workshop in Lab 1)\n")
+    elif args.file:
+        try:
+            with open(args.file, "r", encoding="utf-8") as f:
+                event_text = f.read()
+            print(f">> Loaded event plan from: {args.file}\n")
+        except Exception as e:
+            print(f"Error reading file '{args.file}': {e}")
+            sys.exit(1)
+    else:
+        print("Options:")
+        print("  [Enter]  Run built-in example demo plan")
+        print("  [p]      Paste/type your own custom event plan")
+        print("  [u]      Launch Streamlit Web UI")
+        try:
+            choice = input("\nSelect an option [default: Enter for demo]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            choice = ""
+
+        if choice in ("u", "ui", "web"):
+            print("Launching Streamlit Web Dashboard...")
+            from streamlit.web import cli as stcli
+            sys.argv = ["streamlit", "run", __file__]
+            sys.exit(stcli.main())
+        elif choice in ("p", "paste", "custom"):
+            print("\nPaste your event plan below. Press Ctrl+Z (Windows) or Ctrl+D (Mac/Linux) then Enter when done:")
+            lines = []
+            try:
+                while True:
+                    line = input()
+                    lines.append(line)
+            except EOFError:
+                pass
+            event_text = "\n".join(lines).strip()
+            if not event_text:
+                print("No input provided. Falling back to example plan.\n")
+                event_text = EXAMPLE_PLAN
+        else:
+            event_text = EXAMPLE_PLAN
+            print("\n>> Running built-in demo plan (Python Workshop in Lab 1)...\n")
+
+    # Phase 1: Extract
+    print("-" * 72)
+    print("🧠 Phase 1: Extracting event details...")
+    event_data = extract_event_data_ai(event_text)
+    method = "Ollama Local AI"
+    if not event_data or not isinstance(event_data, dict):
+        event_data = extract_event_data_regex(event_text)
+        method = "Deterministic Regex Fallback"
+    print(f"✓ Extracted via {method}")
+    print(f"  - Room: {event_data.get('room_name', '?')}")
+    print(f"  - Expected Attendees: {event_data.get('expected_attendees', '?')}")
+    print(f"  - Equipment items: {len(event_data.get('equipment', {}))}")
+    print(f"  - Staff roles: {len(event_data.get('staff', {}))}")
+    print(f"  - Accessibility features: {len(event_data.get('accessibility', []))}")
+    print(f"  - Budget items: {len(event_data.get('budget_items', []))}")
+    print()
+
+    # Phase 2: Run tools
+    print("-" * 72)
+    print("🔧 Phase 2: Verifying against college databases...")
+    tool_results = run_all_tools(event_data)
+    suggestions = generate_suggestions(tool_results, event_data)
+    readiness = calculate_readiness(tool_results)
+
+    # Print Readiness Verdict
+    print()
+    print("=" * 72)
+    if readiness["status"] == "READY":
+        print("  📊 OVERALL READINESS: ✅ READY")
+        print("  All checks passed. The event is clear to proceed!")
+    elif readiness["status"] == "READY WITH WARNINGS":
+        print("  📊 OVERALL READINESS: ⚠️ READY WITH WARNINGS")
+        print(f"  Event can proceed, but {len(readiness['warnings'])} non-critical warning(s) found.")
+    else:
+        print("  📊 OVERALL READINESS: ❌ NOT READY")
+        print(f"  {len(readiness['blockers'])} critical blocker(s) must be resolved before proceeding:")
+        for b in readiness["blockers"]:
+            print(f"    🚨 {b}")
+    print("=" * 72)
+    print()
+
+    # Print Findings & Checks
+    # 1. Venue
+    if "check_room_capacity" in tool_results:
+        r = tool_results["check_room_capacity"]
+        print("🏫 VENUE CHECK:")
+        print(f"   Room: {r.get('room')} (Capacity: {r.get('room_capacity')} | Expected: {r.get('expected_attendees')})")
+        print(f"   Status: {r.get('status')}")
+        print(f"   Projector: {'Yes' if r.get('has_projector') else 'No'} | AC: {'Yes' if r.get('has_ac') else 'No'} | Accessible: {'Yes' if r.get('wheelchair_accessible') else 'No'}")
+        for w in r.get("warnings", []):
+            print(f"   ⚠️ Warning: {w}")
+        print()
+
+    # 2. Equipment
+    if "check_resources" in tool_results:
+        r = tool_results["check_resources"]
+        print("🔧 EQUIPMENT CHECK:")
+        for it in r.get("available", []):
+            print(f"   ✅ PASS: {it['item']} — {it['in_stock']} in stock (needed: {it['required']})")
+        for it in r.get("shortages", []):
+            print(f"   ❌ FAIL: {it['item']} — only {it['in_stock']} in stock, needed: {it['required']} (SHORT by {it['shortage']})")
+        for it in r.get("unknown", []):
+            print(f"   ❓ UNKNOWN: {it['item']} — not tracked in inventory")
+        print()
+
+    # 3. Staffing
+    if "check_staffing" in tool_results:
+        r = tool_results["check_staffing"]
+        print("👥 STAFFING CHECK:")
+        for st_it in r.get("covered", []):
+            print(f"   ✅ PASS: {st_it['role']} — {st_it['available']} available (needed: {st_it['needed']})")
+        for st_it in r.get("shortages", []):
+            print(f"   ❌ FAIL: {st_it['role']} — only {st_it['available']} available, needed: {st_it['needed']} (SHORT by {st_it['shortage']})")
+        for st_it in r.get("unknown", []):
+            print(f"   ❓ UNKNOWN: {st_it['role']} — not tracked in staff roster")
+        print()
+
+    # 4. Accessibility
+    if "check_accessibility" in tool_results:
+        r = tool_results["check_accessibility"]
+        print("♿ ACCESSIBILITY CHECK:")
+        for ac in r.get("met", []):
+            print(f"   ✅ PASS: {ac['feature']} — available")
+        for ac in r.get("not_met", []):
+            print(f"   ❌ FAIL: {ac['feature']} — NOT AVAILABLE")
+        for ac in r.get("unknown", []):
+            print(f"   ❓ UNKNOWN: {ac['feature']} — unverified")
+        print()
+
+    # 5. Budget
+    if "calculate_budget" in tool_results:
+        r = tool_results["calculate_budget"]
+        print(f"💰 BUDGET ESTIMATE (Total: ₹{r.get('total_cost', 0):,.0f}):")
+        for bi in r.get("breakdown", []):
+            print(f"   - {bi['item']}: {bi['quantity']} × ₹{bi['unit_price']:,} = ₹{bi['line_total']:,}")
+        print()
+
+    # Smart Fix Suggestions
+    if suggestions:
+        print("💡 SMART FIX RECOMMENDATIONS:")
+        for idx, s in enumerate(suggestions, 1):
+            print(f"   {idx}. [{s['area']}] Issue: {s['issue']}")
+            for fl in s["fix"].split("\n"):
+                if fl.strip():
+                    print(f"      👉 {fl.strip()}")
+        print()
+
+    # Option to save report
+    try:
+        save = input("Save full report to markdown file? (y/N): ").strip().lower()
+    except (EOFError, KeyboardInterrupt):
+        save = "n"
+    if save == "y":
+        fname = f"eventready_report_{event_data.get('room_name', 'event')}.md"
+        report_text = build_report_text(tool_results, event_data, suggestions, readiness)
+        with open(fname, "w", encoding="utf-8") as f:
+            f.write(report_text)
+        print(f"✓ Report successfully saved to: {fname}")
+    print()
+
+
 if __name__ == "__main__":
-    main()
+    if hasattr(st, "runtime") and st.runtime.exists():
+        main()
+    else:
+        run_terminal()
+
