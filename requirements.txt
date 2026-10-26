@@ -1,0 +1,46 @@
+# ============================================================
+#  EventReady — Pre-Event Failure Detector
+#  Requirements File
+# ============================================================
+#
+#  PROJECT OVERVIEW
+#  ─────────────────
+#  EventReady uses a LOCAL AI architecture powered by Ollama.
+#  There are NO cloud APIs, NO API keys, and NO internet
+#  calls during inference. Everything runs on your machine.
+#
+#  INSTALL ALL DEPENDENCIES:
+#    pip install -r requirements.txt
+#
+#  ALSO REQUIRED (not a pip package):
+#    Ollama runtime  →  https://ollama.com/download
+#    Ollama model    →  ollama pull llama3.2:3b
+# ============================================================
+
+
+# ──────────────────────────────────────────────────────────
+#  CORE AI ENGINE  ★ PRIMARY DEPENDENCY ★
+#  Ollama Python client — connects app.py and cli.py to the
+#  local Ollama runtime for LLM-based event plan extraction.
+#  Model used: llama3.2:3b (runs fully offline, ~2 GB VRAM)
+# ──────────────────────────────────────────────────────────
+ollama==0.6.3
+
+
+# ──────────────────────────────────────────────────────────
+#  WEB UI  (app.py)
+#  Streamlit — renders the browser-based dashboard with
+#  sidebar inventory, progress bars, suggestions, and the
+#  downloadable Readiness Report.
+#  Run: streamlit run app.py  →  http://localhost:8501
+# ──────────────────────────────────────────────────────────
+streamlit==1.66.1
+
+
+# ──────────────────────────────────────────────────────────
+#  TERMINAL CLI  (cli.py)
+#  Rich — powers the colored terminal tables, spinners,
+#  panels, and styled report output in the CLI version.
+#  Run: python cli.py --example
+# ──────────────────────────────────────────────────────────
+rich==15.0.0
